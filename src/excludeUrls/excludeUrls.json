@@ -1,6 +1,6 @@
 [
   "*://*.google.com/*",
-  "http://localhost:*/*",
+  "*://*.localhost:*/*",
   "*://*.facebook.*/*",
   "*://*.instagram.com/*",
   "*://*.whatsapp.com/*",

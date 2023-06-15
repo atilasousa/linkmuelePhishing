@@ -1,112 +1,111 @@
-import { optionsVirusTotal } from "./plugins/virustotal.js";
 import {
   sendMessageToOpenModal,
   setIcon,
-  convertUrlToBase64,
   revertUrlFromBase64,
   storeDataInLocalStorage,
+  checkIfUrlIsInExcludeList,
+  checkIfUrlExistInLocalStorage,
 } from "./utils/utils.js";
 import {
   addUrlToAnalysedLinks,
   checkIfUrlIsAnalysed,
 } from "./utils/firebaseFunctions.js";
+import { getUrlStats } from "./utils/virustotalAnalisys.js";
+
+chrome.storage.local.clear();
+
+chrome.storage.sync.clear();
 
 const runtimeHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab.id;
   const tabHref = new URL(message?.url).href;
-  const resutl = await checkIfUrlIsAnalysed(tabHref);
 
-  if (!resutl.exists) {
-    console.log("not exists");
-    if (message.type === "runtime") {
-      console.log("runtime");
-      try {
-        const urlBase64 = convertUrlToBase64(tabHref);
-        const { signal, abort } = new AbortController();
+  if (checkIfUrlIsInExcludeList(tabHref)) {
+    console.log("is in exclude list");
+    storeDataInLocalStorage(tabHref, { urlStats: { type: "safe" } });
 
-        const response = await fetch(
-          `https://www.virustotal.com/api/v3/urls/${urlBase64}`,
-          {
-            ...optionsVirusTotal,
-            signal,
-          }
-        );
+    setIcon(tabId, "safeIcon");
 
-        const { data, error } = await response.json();
+    return true;
+  } else if (checkIfUrlExistInLocalStorage(tabHref)) {
+    setIcon(tabId, "safeIcon");
 
-        if (error) {
-          console.log(error);
-          return;
-        }
+    return true;
+  } else {
+    const resutl = await checkIfUrlIsAnalysed(tabHref);
 
-        console.log(data);
+    if (!resutl.exists) {
+      console.log("not exists");
+      if (message.type === "runtime") {
+        console.log("runtime");
+        try {
+          await getUrlStats(tabHref).then(async (data) => {
+            const { urlStats, filterData } = data;
 
-        const tabData = {
-          name: tabHref,
-          id: tabId,
-          analysed: true,
-          abort,
-        };
+            const urlData = {
+              id: tabHref,
+              stats: urlStats,
+              created_at: Date.now(),
+            };
 
-        const dataList = Object.entries(
-          data?.attributes?.last_analysis_results
-        );
-        const urlStats = data?.attributes?.last_analysis_stats;
+            const phishingData = filterData("phishing");
+            const malwareData = filterData("malware");
+            const maliciousData = filterData("malicious");
 
-        const filterData = (category) =>
-          Object.fromEntries(
-            dataList.filter(([_, { result }]) =>
-              result.toLowerCase().includes(category)
-            )
-          );
+            const phishingDataLength = Object.keys(phishingData).length;
+            const malwareDataLength = Object.keys(malwareData).length;
+            const maliciousDataLength = Object.keys(maliciousData).length;
 
-        const phishingData = filterData("phishing");
-        const malwareData = filterData("malware");
-        const maliciousData = filterData("malicious");
+            let type = "";
 
-        if (Object.keys(phishingData).length) {
-          tabData["phishing"] = true;
-          urlStats["phishing"] = Object.keys(phishingData).length;
+            if (phishingDataLength) {
+              setIcon(tabId, "dangerIcon");
+              type = "phishing";
+              urlData.phishingData = phishingData;
+            } else if (malwareDataLength) {
+              setIcon(tabId, "warningIcon");
+              type = "malware";
+              urlData.malwareData = malwareData;
+            } else if (maliciousDataLength) {
+              console.log("aqui malicious");
+              setIcon(tabId, "warningIcon");
+              type = "malicious";
+              urlData.maliciousData = maliciousData;
+            } else {
+              setIcon(tabId, "safeIcon");
+              type = "safe";
+            }
 
-          setIcon(tabId, "dangerIcon");
-        } else if (urlStats.malicious > 0) {
-          tabData["malicious"] = true;
+            urlData.type = type;
 
-          setIcon(tabId, "warningIcon");
+            storeDataInLocalStorage(tabHref, urlData);
 
-          addUrlToAnalysedLinks(tabHref, {
-            type: "malicious",
-            stats: urlStats,
-            maliciousData,
-          }).catch((error) => console.error(error));
-
-          sendMessageToOpenModal();
-        } else if (urlStats.malicious === 0 && urlStats.harmless > 0) {
-          setIcon(tabId, "safeIcon");
-
-          addUrlToAnalysedLinks(tabHref, {
-            type: "safe",
+            await addUrlToAnalysedLinks(tabHref, urlData);
           });
+        } catch (error) {
+          console.error(error);
         }
-      } catch (error) {
-        console.error(error);
+
+        return true;
+      }
+    } else {
+      console.log("exists");
+      if (resutl.data.urlStats.type === "malicious") {
+        setIcon(tabId, "warningIcon");
+      } else if (resutl.data.urlStats.type === "phishing") {
+        setIcon(tabId, "dangerIcon");
+      } else if (resutl.data.urlStats.type === "safe") {
+        setIcon(tabId, "safeIcon");
       }
 
-      return true;
-    }
-  } else {
-    if (resutl.data.urlStats.type === "malicious") {
-      setIcon(tabId, "warningIcon");
-    } else if (resutl.data.urlStats.type === "phishing") {
-      setIcon(tabId, "dangerIcon");
-    } else if (resutl.data.urlStats.type === "safe") {
-      console.log("safe");
-      setIcon(tabId, "safeIcon");
-    }
+      const revertedUrl = revertUrlFromBase64(resutl.data.id);
 
-    const revertedUrl = revertUrlFromBase64(resutl.data.id);
-
-    storeDataInLocalStorage(revertedUrl, resutl.data);
+      await storeDataInLocalStorage(revertedUrl, resutl.data).then(() => {
+        if (resutl.data.urlStats.type !== "safe") {
+          sendMessageToOpenModal();
+        }
+      });
+    }
   }
 };
 

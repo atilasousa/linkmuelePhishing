@@ -164,8 +164,11 @@ chrome.tabs.query({ currentWindow: true, active: true }, function (tabs) {
   const urlKey = tabs[0].url;
 
   chrome.storage.local.get(urlKey, function (result) {
+    console.log("result", result);
     if (Object.keys(result).length !== 0) {
       data = result[urlKey];
+
+      console.log(result[urlKey], data);
 
       if (data.urlStats.type === "malicious") {
         printAlert(data, "malicious");

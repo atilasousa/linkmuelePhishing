@@ -19,7 +19,36 @@
   "web_accessible_resources": [
     {
       "resources": ["*.html"],
-      "matches": ["<all_urls>"]
+      "matches": ["<all_urls>"],
+      "exclude_globs": [
+        "*://*.google.com/*",
+        "*://*.localhost:*/*",
+        "*://*.facebook.*/*",
+        "*://*.instagram.com/*",
+        "*://*.whatsapp.com/*",
+        "*://*.telegram.com/*",
+        "*://*.virustotal.com/*",
+        "*://*.amazon.*/*",
+        "*://*.pinterest.*/*",
+        "*://*.apple.com/*",
+        "*://*.microsoft.com/*",
+        "*://*.vuejs.com/*",
+        "*://*.linkedin.com/*",
+        "*://*.twitter.com/*",
+        "*://*.netflix.com/*",
+        "*://*.paypal.com/*",
+        "*://*.youtube.com/*",
+        "*://*.github.com/*",
+        "*://*.bitbucket.com/*",
+        "*://*.adobe.com/*",
+        "*://*.wikipedia.com/*",
+        "*://*.zoom.com/*",
+        "*://*.spotify.com/*",
+        "*://*.evernote.com/*",
+        "*://*.trello.com/*",
+        "*://chat.openai.com/*",
+        "*://*.stackoverflow.*/*"
+      ]
     }
   ],
   "content_scripts": [

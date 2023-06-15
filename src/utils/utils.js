@@ -6,6 +6,27 @@ export const sendMessageToOpenModal = () => {
   });
 };
 
+export const checkIfUrlIsInExcludeList = (url) => {
+  const urlObj = new URL(url);
+  if (urlObj.hostname.includes("localhost")) return true;
+
+  if (urlObj.hostname.includes("chrome-extension")) return true;
+
+  if (!urlObj.hostname.includes("www")) {
+    urlObj.hostname = "www." + urlObj.hostname;
+  }
+
+  const hostname = urlObj.hostname.split(".")[1];
+
+  const isInExcludeList = excludeGlobs.some((excludeGlob) =>
+    excludeGlob.includes(hostname)
+  );
+
+  console.log("isInExcludeList", isInExcludeList);
+
+  return isInExcludeList;
+};
+
 export const sendMessageToContentScript = (tabId, message) => {
   chrome.tabs.sendMessage(tabId, message);
 };
@@ -30,8 +51,23 @@ export const revertUrlFromBase64 = (url) => {
   return btoa(url).replace(/-/g, "/");
 };
 
-export const storeDataInLocalStorage = (key, data) => {
-  chrome.storage.local.set({
-    [key]: data,
+export const checkIfUrlExistInLocalStorage = (key) => {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(key, (result) => {
+      const exists = result[key] !== undefined;
+      resolve(exists);
+    });
+  });
+};
+
+export const storeDataInLocalStorage = async (key, data) => {
+  return new Promise((resolve, reject) => {
+    const exist = checkIfUrlExistInLocalStorage(key);
+
+    if (!exist) {
+      chrome.storage.local.set({ [key]: data }, () => {
+        resolve();
+      });
+    }
   });
 };
