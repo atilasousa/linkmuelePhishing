@@ -20,8 +20,6 @@ export const addUrlToAnalysedLinks = async (url, urlStats) => {
   });
 };
 
-// const documentId = url.replace(/-/g, "/");
-
 export const checkIfUrlIsAnalysed = async (url) => {
   const documentId = url.replace(/\//g, "-");
 

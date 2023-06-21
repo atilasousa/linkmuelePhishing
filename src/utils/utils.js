@@ -1,5 +1,10 @@
 import excludeGlobs from "../excludeUrls/excludeUrls.json";
 
+const defaultExcludedHosts = {
+  localhost: true,
+  "chrome-extension": true,
+};
+
 export const sendMessageToOpenModal = () => {
   chrome.tabs.query({ currentWindow: true, active: true }, function (tabs) {
     chrome.tabs.sendMessage(tabs[0]?.id, { action: "open_modal" });
@@ -8,21 +13,17 @@ export const sendMessageToOpenModal = () => {
 
 export const checkIfUrlIsInExcludeList = (url) => {
   const urlObj = new URL(url);
-  if (urlObj.hostname.includes("localhost")) return true;
+  const hostname = urlObj.hostname;
 
-  if (urlObj.hostname.includes("chrome-extension")) return true;
+  if (defaultExcludedHosts[hostname]) return true;
 
-  if (!urlObj.hostname.includes("www")) {
-    urlObj.hostname = "www." + urlObj.hostname;
-  }
+  if (!hostname.includes("www")) urlObj.hostname = "www." + urlObj.hostname;
 
-  const hostname = urlObj.hostname.split(".")[1];
+  const domain = hostname.split(".")[1];
 
   const isInExcludeList = excludeGlobs.some((excludeGlob) =>
-    excludeGlob.includes(hostname)
+    excludeGlob.includes(domain)
   );
-
-  console.log("isInExcludeList", isInExcludeList);
 
   return isInExcludeList;
 };

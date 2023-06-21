@@ -12,10 +12,6 @@ import {
 } from "./utils/firebaseFunctions.js";
 import { getUrlStats } from "./utils/virustotalAnalisys.js";
 
-chrome.storage.local.clear();
-
-chrome.storage.sync.clear();
-
 const runtimeHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab.id;
   const tabHref = new URL(message?.url).href;
