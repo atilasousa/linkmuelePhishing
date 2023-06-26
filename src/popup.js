@@ -85,7 +85,6 @@ function printAlert(data, alertType) {
         elTitle.textContent = "Empresas que classificaram como malware";
         break;
     }
-
     if (dataToPrint) {
       el.appendChild(generateList(dataToPrint));
     }
@@ -164,13 +163,13 @@ chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {
   const urlKey = tabs[0].url;
 
   try {
-    const urlData = await getUrlData(urlKey);
+    data = await getUrlData(urlKey);
 
-    if (urlData.urlStats.type === "malicious") {
-      printAlert(urlData, "malicious");
-    } else if (urlData.urlStats.type === "phishing") {
-      printAlert(urlData, "phishing");
-    } else if (urlData.urlStats.type === "safe") {
+    if (data.urlStats.type === "malicious") {
+      printAlert(data, "malicious");
+    } else if (data.urlStats.type === "phishing") {
+      printAlert(data, "phishing");
+    } else if (data.urlStats.type === "safe") {
       printSafeData();
     }
   } catch (error) {
