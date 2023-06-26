@@ -136,8 +136,6 @@ function hideInitComponent() {
 }
 
 function showFullReport() {
-  const detailsHolder = document.getElementsByClassName("details_holder");
-
   if (webSiteCategories.length > 0) {
     printCategories();
   }
@@ -145,13 +143,18 @@ function showFullReport() {
   const { phishingData, maliciousData, malwareData } = data.urlStats;
 
   if (phishingData) {
-    detailsHolder[0].style.display = "block";
+    document.getElementsByClassName(
+      "details_holder_phishing"
+    )[0].style.display = "block";
   }
   if (maliciousData) {
-    detailsHolder[1].style.display = "block";
+    document.getElementsByClassName(
+      "details_holder_malicious"
+    )[0].style.display = "block";
   }
   if (malwareData) {
-    detailsHolder[2].style.display = "block";
+    document.getElementsByClassName("details_holder_malware")[0].style.display =
+      "block";
   }
 }
 
