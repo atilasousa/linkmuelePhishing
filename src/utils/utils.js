@@ -13,16 +13,19 @@ export const sendMessageToOpenModal = () => {
 
 export const checkIfUrlIsInExcludeList = (url) => {
   const urlObj = new URL(url);
-  const hostname = urlObj.hostname;
+  let hostname = urlObj.hostname;
 
   if (defaultExcludedHosts[hostname]) return true;
 
-  if (!hostname.includes("www")) urlObj.hostname = "www." + urlObj.hostname;
+  const splitedHostName = hostname.split(".");
 
-  const domain = hostname.split(".")[1];
+  if (splitedHostName.length == 2 && !hostname.includes("www"))
+    hostname = "www." + hostname;
+
+  const finalDomain = hostname.split(".")[1];
 
   const isInExcludeList = excludeGlobs.some((excludeGlob) =>
-    excludeGlob.includes(domain)
+    excludeGlob.includes(finalDomain)
   );
 
   return isInExcludeList;
@@ -52,23 +55,26 @@ export const revertUrlFromBase64 = (url) => {
   return btoa(url).replace(/-/g, "/");
 };
 
-export const checkIfUrlExistInLocalStorage = (key) => {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(key, (result) => {
-      const exists = result[key] !== undefined;
-      resolve(exists);
+export const checkIfUrlExistInLocalStorage = async (urlKey) => {
+  let exist = false;
+
+  const result = await new Promise((resolve) => {
+    chrome.storage.sync.get([urlKey], function (result) {
+      resolve(result);
     });
   });
+
+  if (Object.keys(result).length !== 0) {
+    exist = true;
+  }
+
+  return { exist, result };
 };
 
 export const storeDataInLocalStorage = async (key, data) => {
-  return new Promise((resolve, reject) => {
-    const exist = checkIfUrlExistInLocalStorage(key);
-
-    if (!exist) {
-      chrome.storage.local.set({ [key]: data }, () => {
-        resolve();
-      });
+  await chrome.storage.sync.set({ [key]: data }, () => {
+    if (chrome.runtime.lastError) {
+      console.log("Erro ao salvar na storage:", chrome.runtime.lastError);
     }
   });
 };

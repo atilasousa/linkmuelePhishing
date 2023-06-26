@@ -1,5 +1,7 @@
 [
   "*://*.google.com/*",
+  "*://*.firebase.com/*",
+  "*://*.firebase.google.*/*",
   "*://*.localhost:*/*",
   "*://*.facebook.*/*",
   "*://*.instagram.com/*",

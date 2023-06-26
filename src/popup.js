@@ -1,3 +1,5 @@
+import { checkIfUrlExistInLocalStorage } from "./utils/utils";
+
 const summarysContentIds = ["phishing", "malicious", "malware"];
 let data;
 let webSiteCategories = [];
@@ -160,27 +162,18 @@ document.getElementById("close_button").addEventListener("click", () => {
   });
 });
 
-chrome.tabs.query({ currentWindow: true, active: true }, function (tabs) {
+chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {
   const urlKey = tabs[0].url;
 
-  chrome.storage.local.get(urlKey, function (result) {
-    console.log("result", result);
-    if (Object.keys(result).length !== 0) {
-      data = result[urlKey];
+  data = await (await checkIfUrlExistInLocalStorage(urlKey)).result[urlKey];
 
-      console.log(result[urlKey], data);
-
-      if (data.urlStats.type === "malicious") {
-        printAlert(data, "malicious");
-      } else if (data.urlStats.type === "phishing") {
-        printAlert(data, "phishing");
-      } else if (data.urlStats.type === "safe") {
-        printSafeData();
-      }
-    } else {
-      printSafeData();
-    }
-  });
+  if (data.urlStats.type === "malicious") {
+    printAlert(data, "malicious");
+  } else if (data.urlStats.type === "phishing") {
+    printAlert(data, "phishing");
+  } else if (data.urlStats.type === "safe") {
+    printSafeData();
+  }
 });
 
 document.getElementById("reportButton").addEventListener("click", () => {

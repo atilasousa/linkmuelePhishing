@@ -15,16 +15,30 @@ import { getUrlStats } from "./utils/virustotalAnalisys.js";
 const runtimeHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab.id;
   const tabHref = new URL(message?.url).href;
+  const isInExcludeList = checkIfUrlIsInExcludeList(tabHref);
 
-  if (checkIfUrlIsInExcludeList(tabHref)) {
-    console.log("is in exclude list");
+  if (isInExcludeList) {
     storeDataInLocalStorage(tabHref, { urlStats: { type: "safe" } });
 
     setIcon(tabId, "safeIcon");
 
     return true;
-  } else if (checkIfUrlExistInLocalStorage(tabHref)) {
-    setIcon(tabId, "safeIcon");
+  }
+
+  const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(tabHref);
+
+  if (isUrlExistInLocalStorage.exist) {
+    const { type } = isUrlExistInLocalStorage.result[tabHref].urlStats;
+
+    const iconType =
+      type === "safe"
+        ? "safeIcon"
+        : type === "phishing"
+        ? "dangerIcon"
+        : "warningIcon";
+    setIcon(tabId, iconType);
+
+    if (type != "safe") sendMessageToOpenModal();
 
     return true;
   } else {
@@ -63,7 +77,6 @@ const runtimeHandler = async (message, sender, sendResponse) => {
               type = "malware";
               urlData.malwareData = malwareData;
             } else if (maliciousDataLength) {
-              console.log("aqui malicious");
               setIcon(tabId, "warningIcon");
               type = "malicious";
               urlData.maliciousData = maliciousData;
@@ -74,7 +87,7 @@ const runtimeHandler = async (message, sender, sendResponse) => {
 
             urlData.type = type;
 
-            storeDataInLocalStorage(tabHref, urlData);
+            await storeDataInLocalStorage(tabHref, urlData);
 
             await addUrlToAnalysedLinks(tabHref, urlData);
           });
@@ -85,44 +98,38 @@ const runtimeHandler = async (message, sender, sendResponse) => {
         return true;
       }
     } else {
-      console.log("exists");
-      if (resutl.data.urlStats.type === "malicious") {
-        setIcon(tabId, "warningIcon");
-      } else if (resutl.data.urlStats.type === "phishing") {
-        setIcon(tabId, "dangerIcon");
-      } else if (resutl.data.urlStats.type === "safe") {
-        setIcon(tabId, "safeIcon");
+      const { type } = resutl.data.urlStats;
+      let icon = "";
+
+      if (type === "malicious") {
+        icon = "warningIcon";
+      } else if (type === "phishing") {
+        icon = "dangerIcon";
+      } else if (type === "safe") {
+        icon = "safeIcon";
       }
 
-      const revertedUrl = revertUrlFromBase64(resutl.data.id);
+      setIcon(tabId, icon);
 
-      await storeDataInLocalStorage(revertedUrl, resutl.data).then(() => {
-        if (resutl.data.urlStats.type !== "safe") {
-          sendMessageToOpenModal();
-        }
-      });
+      if (isUrlExistInLocalStorage.exist) {
+        sendMessageToOpenModal();
+        return;
+      }
+
+      await storeDataInLocalStorage(tabHref, resutl.data);
+      if (icon != "safeIcon") sendMessageToOpenModal();
+
+      return true;
     }
   }
 };
 
-const removeTabHandler = (tabId, removed) => {
-  const index = accessedTabs.findIndex((tab) => tab.id === tabId);
-
-  if (index !== -1) {
-    const removedTab = accessedTabs[index];
-    if (!removedTab.analysed) removedTab.abort();
-    accessedTabs.splice(index, 1);
-  }
-};
-
 chrome.action.onClicked.addListener(() => {
-  sendMessageToOpenModal();
+  setTimeout(() => {
+    sendMessageToOpenModal();
+  }, 500);
 });
 
 chrome.runtime.onMessage.removeListener(runtimeHandler);
 
 chrome.runtime.onMessage.addListener(runtimeHandler);
-
-chrome.tabs.onRemoved.removeListener(removeTabHandler);
-
-chrome.tabs.onRemoved.addListener(removeTabHandler);
