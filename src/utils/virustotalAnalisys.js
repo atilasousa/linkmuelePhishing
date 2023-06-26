@@ -2,6 +2,8 @@ import { optionsVirusTotal } from "../plugins/virustotal";
 import { convertUrlToBase64 } from "./utils";
 
 export const getUrlStats = async (url) => {
+  let attempts = 0;
+
   const urlBase64 = convertUrlToBase64(url);
   const { signal, abort } = new AbortController();
 
@@ -16,7 +18,11 @@ export const getUrlStats = async (url) => {
   const { data, error } = await response.json();
 
   if (error) {
-    console.log(error);
+    const { code } = error["error"];
+    if (code === "NotFoundError" && attempts < 3) {
+      attempts++;
+      return getUrlStats(url);
+    }
     return;
   }
 

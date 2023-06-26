@@ -1,7 +1,5 @@
-import { checkIfUrlExistInLocalStorage } from "./utils/utils";
-
 const summarysContentIds = ["phishing", "malicious", "malware"];
-let data;
+let data = null;
 let webSiteCategories = [];
 
 function createListItem(innerContent) {
@@ -165,16 +163,37 @@ document.getElementById("close_button").addEventListener("click", () => {
 chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {
   const urlKey = tabs[0].url;
 
-  data = await (await checkIfUrlExistInLocalStorage(urlKey)).result[urlKey];
+  try {
+    const urlData = await getUrlData(urlKey);
 
-  if (data.urlStats.type === "malicious") {
-    printAlert(data, "malicious");
-  } else if (data.urlStats.type === "phishing") {
-    printAlert(data, "phishing");
-  } else if (data.urlStats.type === "safe") {
-    printSafeData();
+    if (urlData.urlStats.type === "malicious") {
+      printAlert(urlData, "malicious");
+    } else if (urlData.urlStats.type === "phishing") {
+      printAlert(urlData, "phishing");
+    } else if (urlData.urlStats.type === "safe") {
+      printSafeData();
+    }
+  } catch (error) {
+    console.error(error);
   }
 });
+
+function getUrlData(urlKey) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.get([urlKey], function (result) {
+      const urlData = result[urlKey];
+      if (urlData) {
+        resolve(urlData);
+      } else {
+        reject(
+          new Error(
+            "Não foi possível encontrar os dados da URL no armazenamento."
+          )
+        );
+      }
+    });
+  });
+}
 
 document.getElementById("reportButton").addEventListener("click", () => {
   hideInitComponent();

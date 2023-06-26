@@ -1,7 +1,6 @@
 import {
   sendMessageToOpenModal,
   setIcon,
-  revertUrlFromBase64,
   storeDataInLocalStorage,
   checkIfUrlIsInExcludeList,
   checkIfUrlExistInLocalStorage,
