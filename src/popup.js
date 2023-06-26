@@ -142,13 +142,15 @@ function showFullReport() {
     printCategories();
   }
 
-  if (data.urlStats.phishingData) {
+  const { phishingData, maliciousData, malwareData } = data.urlStats;
+
+  if (phishingData) {
     detailsHolder[0].style.display = "block";
   }
-  if (data.urlStats.maliciousData) {
+  if (maliciousData) {
     detailsHolder[1].style.display = "block";
   }
-  if (data.urlStats?.malwareData) {
+  if (malwareData) {
     detailsHolder[2].style.display = "block";
   }
 }
