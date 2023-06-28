@@ -37,20 +37,22 @@ function printAlert(data, alertType) {
 
   switch (alertType) {
     case "phishing":
+      const phishingData = data.urlStats?.phishingData ?? data.phishingData;
       alertLogoClass = "phishing";
       iconSrc = "./assets/images/dangerIcon/128.png";
       alertText = "ALERTA PHISHING";
       reportButtonClass = "phishing";
-      webSiteCategories = Object.values(data.urlStats.phishingData).map(
+      webSiteCategories = Object.values(phishingData).map(
         (item) => item.category
       );
       break;
     case "malicious":
+      const maliciousData = data.urlStats?.maliciousData ?? data.maliciousData;
       alertLogoClass = "warning";
       iconSrc = "./assets/images/warningIcon/128.png";
       alertText = "ALERTA DE SEGURANÇA";
       reportButtonClass = "warning";
-      webSiteCategories = Object.values(data.urlStats.maliciousData).map(
+      webSiteCategories = Object.values(maliciousData).map(
         (item) => item.category
       );
       break;
@@ -73,15 +75,19 @@ function printAlert(data, alertType) {
 
     switch (element) {
       case "phishing":
-        dataToPrint = data.urlStats.phishingData;
+        const phishingData = data.urlStats?.phishingData ?? data.phishingData;
+        dataToPrint = phishingData;
         elTitle.textContent = "Empresas que classificaram como phishing";
         break;
       case "malicious":
-        dataToPrint = data.urlStats.maliciousData;
+        const maliciousData =
+          data.urlStats?.maliciousData ?? data.maliciousData;
+        dataToPrint = maliciousData;
         elTitle.textContent = "Empresas que classificaram como malicioso";
         break;
       case "malware":
-        dataToPrint = data.urlStats.malwareData;
+        const malwareData = data.urlStats?.malwareData ?? data.malwareData;
+        dataToPrint = malwareData;
         elTitle.textContent = "Empresas que classificaram como malware";
         break;
     }
@@ -170,11 +176,13 @@ chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {
   try {
     data = await getUrlData(urlKey);
 
-    if (data.urlStats.type === "malicious") {
+    const type = data.urlStats?.type ?? data.type;
+
+    if (type === "malicious") {
       printAlert(data, "malicious");
-    } else if (data.urlStats.type === "phishing") {
+    } else if (type === "phishing") {
       printAlert(data, "phishing");
-    } else if (data.urlStats.type === "safe") {
+    } else if (type === "safe") {
       printSafeData();
     }
   } catch (error) {

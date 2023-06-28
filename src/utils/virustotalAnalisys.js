@@ -16,12 +16,13 @@ export const getUrlStats = async (url) => {
   );
 
   const { data, error } = await response.json();
+  console.log(data, error);
 
   if (error) {
-    if (attempts < 3) {
-      attempts++;
-      return getUrlStats(url);
-    }
+    // if (attempts < 3) {
+    //   attempts++;
+    //   return getUrlStats(url);
+    // }
     return;
   }
 

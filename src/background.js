@@ -11,6 +11,9 @@ import {
 } from "./utils/firebaseFunctions.js";
 import { getUrlStats } from "./utils/virustotalAnalisys.js";
 
+chrome.storage.local.clear();
+chrome.storage.sync.clear();
+
 const runtimeHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab.id;
   const tabHref = new URL(message?.url).href;
@@ -47,6 +50,10 @@ const runtimeHandler = async (message, sender, sendResponse) => {
       if (message.type === "runtime") {
         try {
           await getUrlStats(tabHref).then(async (data) => {
+            if (!data) {
+              return;
+            }
+
             const { urlStats, filterData } = data;
 
             const urlData = {
@@ -60,33 +67,40 @@ const runtimeHandler = async (message, sender, sendResponse) => {
             const maliciousData = filterData("malicious");
 
             const phishingDataLength = Object.keys(phishingData).length;
-            const malwareDataLength = Object.keys(malwareData).length;
             const maliciousDataLength = Object.keys(maliciousData).length;
-
-            let type = "";
+            const malwareDataLength = Object.keys(malwareData).length;
 
             if (phishingDataLength) {
+              console.log("phishing aqui");
               setIcon(tabId, "dangerIcon");
-              type = "phishing";
+
+              urlData.type = "phishing";
               urlData.phishingData = phishingData;
             } else if (malwareDataLength) {
+              console.log("malware aqui");
               setIcon(tabId, "warningIcon");
-              type = "malware";
+
+              urlData.type = "malware";
               urlData.malwareData = malwareData;
             } else if (maliciousDataLength) {
               setIcon(tabId, "warningIcon");
-              type = "malicious";
+              console.log("malicious aqui");
+
+              urlData.type = "malicious";
               urlData.maliciousData = maliciousData;
             } else {
               setIcon(tabId, "safeIcon");
-              type = "safe";
+              urlData.type = "safe";
+              return;
             }
-
-            urlData.type = type;
 
             await storeDataInLocalStorage(tabHref, urlData);
 
             await addUrlToAnalysedLinks(tabHref, urlData);
+
+            sendMessageToOpenModal();
+
+            console.log("cheguei aqui");
           });
         } catch (error) {
           console.error(error);
@@ -130,6 +144,8 @@ chrome.action.onClicked.addListener(async () => {
 
   if (isUrlExistInLocalStorage.exist) {
     const type = isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type;
+    console.log("aqui o type", type);
+
     const iconType =
       type === "safe"
         ? "safeIcon"

@@ -1,4 +1,5 @@
 import excludeGlobs from "../excludeUrls/excludeUrls.json";
+import base64 from "base-64";
 
 const defaultExcludedHosts = {
   localhost: true,
@@ -50,7 +51,8 @@ export const setIcon = (tabId, type) => {
 };
 
 export const convertUrlToBase64 = (url) => {
-  return btoa(url).replace(/^\=+|\=+$/g, "");
+  // return btoa(url).replace(/^\=+|\=+$/g, "");
+  return base64.encode(url);
 };
 
 export const revertUrlFromBase64 = (url) => {
@@ -63,6 +65,7 @@ export const checkIfUrlExistInLocalStorage = async (urlKey) => {
   const result = await new Promise((resolve) => {
     chrome.storage.sync.get([urlKey], function (result) {
       resolve(result);
+      console.log("Value currently is " + result[urlKey]);
     });
   });
 
