@@ -27,7 +27,7 @@ const runtimeHandler = async (message, sender, sendResponse) => {
   const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(tabHref);
 
   if (isUrlExistInLocalStorage.exist) {
-    const { type } = isUrlExistInLocalStorage.result[tabHref].urlStats;
+    const { type } = isUrlExistInLocalStorage?.result[tabHref];
 
     const iconType =
       type === "safe"
@@ -44,9 +44,7 @@ const runtimeHandler = async (message, sender, sendResponse) => {
     const resutl = await checkIfUrlIsAnalysed(tabHref);
 
     if (!resutl.exists) {
-      console.log("not exists");
       if (message.type === "runtime") {
-        console.log("runtime");
         try {
           await getUrlStats(tabHref).then(async (data) => {
             const { urlStats, filterData } = data;
@@ -97,7 +95,8 @@ const runtimeHandler = async (message, sender, sendResponse) => {
         return true;
       }
     } else {
-      const { type } = resutl.data.urlStats;
+      console.log("exists");
+      const { type } = resutl.data?.urlStats;
       let icon = "";
 
       if (type === "malicious") {
@@ -123,10 +122,31 @@ const runtimeHandler = async (message, sender, sendResponse) => {
   }
 };
 
-chrome.action.onClicked.addListener(() => {
-  setTimeout(() => {
+chrome.action.onClicked.addListener(async () => {
+  const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
+  const tab = tabs[0];
+
+  const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(tab.url);
+
+  if (isUrlExistInLocalStorage.exist) {
+    const type = isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type;
+    const iconType =
+      type === "safe"
+        ? "safeIcon"
+        : type === "phishing"
+        ? "dangerIcon"
+        : "warningIcon";
+
+    setIcon(tab.id, iconType);
     sendMessageToOpenModal();
-  }, 500);
+    return;
+  }
+
+  console.log("Button does not exist");
+  runtimeHandler(
+    { type: "runtime", url: location.href },
+    { tab: { id: tab.id } }
+  );
 });
 
 chrome.runtime.onMessage.removeListener(runtimeHandler);

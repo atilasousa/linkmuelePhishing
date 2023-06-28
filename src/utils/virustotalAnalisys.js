@@ -18,8 +18,7 @@ export const getUrlStats = async (url) => {
   const { data, error } = await response.json();
 
   if (error) {
-    const { code } = error["error"];
-    if (code === "NotFoundError" && attempts < 3) {
+    if (attempts < 3) {
       attempts++;
       return getUrlStats(url);
     }

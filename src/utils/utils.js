@@ -5,10 +5,11 @@ const defaultExcludedHosts = {
   "chrome-extension": true,
 };
 
-export const sendMessageToOpenModal = () => {
-  chrome.tabs.query({ currentWindow: true, active: true }, function (tabs) {
-    chrome.tabs.sendMessage(tabs[0]?.id, { action: "open_modal" });
-  });
+export const sendMessageToOpenModal = async () => {
+  const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
+  const tab = tabs[0];
+
+  chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
 };
 
 export const checkIfUrlIsInExcludeList = (url) => {
@@ -18,11 +19,12 @@ export const checkIfUrlIsInExcludeList = (url) => {
   if (defaultExcludedHosts[hostname]) return true;
 
   const splitedHostName = hostname.split(".");
+  const splitedHostNameLength = splitedHostName.length;
 
-  if (splitedHostName.length == 2 && !hostname.includes("www"))
+  if (splitedHostNameLength && !hostname.includes("www"))
     hostname = "www." + hostname;
 
-  const finalDomain = hostname.split(".")[1];
+  const finalDomain = hostname.split(".")[splitedHostNameLength - 2];
 
   const isInExcludeList = excludeGlobs.some((excludeGlob) =>
     excludeGlob.includes(finalDomain)
