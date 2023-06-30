@@ -1,12 +1,9 @@
-import {
-  optionsVirusTotalPost,
-  optionsVirusTotalGet,
-} from "../plugins/virustotal";
+import { virustotalOptions } from "../plugins/virustotal";
 
 export const getUrlLinkId = async (url) => {
   const response = await fetch(
     "https://www.virustotal.com/api/v3/urls",
-    optionsVirusTotalPost(url)
+    virustotalOptions("POST", url)
   );
 
   const { data, error } = await response.json();
@@ -19,7 +16,7 @@ export const getUrlLinkId = async (url) => {
 };
 
 export const getUrlStats = async (linkId) => {
-  const response = await fetch(linkId, optionsVirusTotalGet);
+  const response = await fetch(linkId, virustotalOptions("GET"));
 
   const { data, error } = await response.json();
 

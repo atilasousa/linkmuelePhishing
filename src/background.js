@@ -11,6 +11,7 @@ import {
   checkIfUrlIsAnalysed,
 } from "./utils/firebaseFunctions.js";
 import { getUrlStats, getUrlLinkId } from "./utils/virustotalAnalisys.js";
+import defaultHost from "./excludeUrls/defaultUrls.json";
 
 chrome.storage.local.clear();
 chrome.storage.sync.clear();
@@ -139,30 +140,39 @@ const runtimeHandler = async (message, sender, sendResponse) => {
 chrome.action.onClicked.addListener(async () => {
   const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
   const tab = tabs[0];
+  let iconType = "";
 
-  injectContentJsInActiveTab(tab.id);
+  if (!defaultHost[tab.url]) {
+    injectContentJsInActiveTab(tab.id);
 
-  const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(tab.url);
+    const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(
+      tab.url
+    );
 
-  if (isUrlExistInLocalStorage.exist) {
-    const type =
-      isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type ??
-      isUrlExistInLocalStorage.result[tab.url]?.type;
+    if (isUrlExistInLocalStorage.exist) {
+      const type =
+        isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type ??
+        isUrlExistInLocalStorage.result[tab.url]?.type;
 
-    let iconType = "";
-    if (type === "safe") iconType = "safeIcon";
-    else if (type === "phishing") iconType = "dangerIcon";
-    else if (type === "malicious") iconType = "warningIcon";
+      if (type === "safe") iconType = "safeIcon";
+      else if (type === "phishing") iconType = "dangerIcon";
+      else if (type === "malicious") iconType = "warningIcon";
 
-    setIcon(tab.id, iconType);
+      setIcon(tab.id, iconType);
 
-    setTimeout(() => {
-      sendMessageToOpenModal();
-    }, 500);
+      setTimeout(() => {
+        sendMessageToOpenModal();
+      }, 500);
 
-    return;
-  } else
-    runtimeHandler({ type: "runtime", url: tab.url }, { tab: { id: tab.id } });
+      return;
+    } else
+      runtimeHandler(
+        { type: "runtime", url: tab.url },
+        { tab: { id: tab.id } }
+      );
+  } else {
+    setIcon(tab.id, "safeIcon");
+  }
 });
 
 chrome.runtime.onMessage.addListener(runtimeHandler);

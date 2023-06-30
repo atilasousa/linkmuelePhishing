@@ -1,10 +1,6 @@
+import defaultExcludedHosts from "../excludeUrls/defaultUrls.json";
 import excludeGlobs from "../excludeUrls/excludeUrls.json";
 import base64 from "base-64";
-
-const defaultExcludedHosts = {
-  localhost: true,
-  "chrome-extension": true,
-};
 
 export const injectContentJsInActiveTab = async (tabId) => {
   await chrome.scripting.executeScript({
@@ -30,10 +26,7 @@ export const checkIfUrlIsInExcludeList = (url) => {
 
   const splitedHostNameLength = splitedHostName.length;
 
-  if (splitedHostNameLength && !hostname.includes("www"))
-    hostname = "www." + hostname;
-
-  const finalDomain = hostname.split(".")[splitedHostNameLength - 2];
+  const finalDomain = `${splitedHostName[splitedHostNameLength - 2]}`;
 
   const isInExcludeList = excludeGlobs.some((excludeGlob) =>
     excludeGlob.includes(finalDomain)
@@ -59,7 +52,6 @@ export const setIcon = (tabId, type) => {
 };
 
 export const convertUrlToBase64 = (url) => {
-  // return btoa(url).replace(/^\=+|\=+$/g, "");
   return base64.encode(url);
 };
 

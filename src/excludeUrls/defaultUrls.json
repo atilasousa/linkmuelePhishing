@@ -1,0 +1,9 @@
+{
+  "localhost": true,
+  "chrome-extension": true,
+  "chrome//": true,
+  "chrome": true,
+  "chrome-extension://": true,
+  "chrome://newtab/": true,
+  "chrome://extensions/": true
+}
