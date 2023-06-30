@@ -1,7 +1,7 @@
 const currentURL = window.location.href;
 
-chrome.runtime.sendMessage({ type: "runtime", url: location.href }, () => {
-  return true;
+window.addEventListener("load", () => {
+  chrome.runtime.sendMessage({ type: "runtime", url: location.href });
 });
 
 let openModal = false;
@@ -19,6 +19,7 @@ const showModal = (report = null) => {
   modal = document.createElement("dialog");
   modal.setAttribute("id", "linkMueleModal");
   modal.style.position = "fixed";
+  modal.style.zIndex = "99";
   modal.style.height = "450px";
   modal.style.width = "800px";
   modal.style.border = "none";
@@ -48,11 +49,18 @@ const showModal = (report = null) => {
 };
 
 const runtimeHandler = (message, sender, sendResponse) => {
+  console.log("runtimeHandler", message);
   if (message.action === "open_modal") showModal();
-
-  sendResponse();
 };
 
-chrome.runtime.onMessage.removeListener(runtimeHandler);
+chrome.runtime.onConnect.addListener((port) => {
+  console.log("recebi uma conexão");
+  port.onMessage.addListener((message) => {
+    if (message.action === "open_modal") showModal();
+  });
 
+  chrome.extension.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "open_modal") showModal();
+  });
+});
 chrome.runtime.onMessage.addListener(runtimeHandler);

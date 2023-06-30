@@ -16,6 +16,7 @@
   "background": {
     "service_worker": "background.js"
   },
+  "host_permissions": ["*://*/*"],
   "web_accessible_resources": [
     {
       "resources": ["*.html"],
@@ -57,5 +58,12 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": ["tabs", "activeTab", "scripting", "notifications", "storage"]
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "scripting",
+    "notifications",
+    "storage",
+    "webRequest"
+  ]
 }

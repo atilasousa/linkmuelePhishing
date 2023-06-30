@@ -6,11 +6,18 @@ const defaultExcludedHosts = {
   "chrome-extension": true,
 };
 
+export const injectContentJsInActiveTab = async (tabId) => {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["content.js"],
+  });
+};
+
 export const sendMessageToOpenModal = async () => {
-  const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
 
-  chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
+  await chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
 };
 
 export const checkIfUrlIsInExcludeList = (url) => {
@@ -20,6 +27,7 @@ export const checkIfUrlIsInExcludeList = (url) => {
   if (defaultExcludedHosts[hostname]) return true;
 
   const splitedHostName = hostname.split(".");
+
   const splitedHostNameLength = splitedHostName.length;
 
   if (splitedHostNameLength && !hostname.includes("www"))
@@ -65,13 +73,10 @@ export const checkIfUrlExistInLocalStorage = async (urlKey) => {
   const result = await new Promise((resolve) => {
     chrome.storage.sync.get([urlKey], function (result) {
       resolve(result);
-      console.log("Value currently is " + result[urlKey]);
     });
   });
 
-  if (Object.keys(result).length !== 0) {
-    exist = true;
-  }
+  if (Object.keys(result).length !== 0) exist = true;
 
   return { exist, result };
 };

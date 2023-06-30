@@ -146,7 +146,7 @@ function showFullReport() {
     printCategories();
   }
 
-  const { phishingData, maliciousData, malwareData } = data.urlStats;
+  const { phishingData, maliciousData, malwareData } = data.urlStats ?? data;
 
   if (phishingData) {
     document.getElementsByClassName(
@@ -164,10 +164,12 @@ function showFullReport() {
   }
 }
 
-document.getElementById("close_button").addEventListener("click", () => {
-  chrome.tabs.query({ currentWindow: true, active: true }, function (tabs) {
-    chrome.tabs.sendMessage(tabs[0].id, { action: "open_modal" });
-  });
+document.getElementById("close_button").addEventListener("click", async () => {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  const port = chrome.tabs.connect(tab.id);
+
+  port.postMessage({ action: "open_modal" });
 });
 
 chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {

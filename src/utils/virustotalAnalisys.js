@@ -1,33 +1,50 @@
-import { optionsVirusTotal } from "../plugins/virustotal";
-import { convertUrlToBase64 } from "./utils";
+import {
+  optionsVirusTotalPost,
+  optionsVirusTotalGet,
+} from "../plugins/virustotal";
 
-export const getUrlStats = async (url) => {
-  let attempts = 0;
-
-  const urlBase64 = convertUrlToBase64(url);
-  const { signal, abort } = new AbortController();
-
+export const getUrlLinkId = async (url) => {
   const response = await fetch(
-    `https://www.virustotal.com/api/v3/urls/${urlBase64}`,
-    {
-      ...optionsVirusTotal,
-      signal,
-    }
+    "https://www.virustotal.com/api/v3/urls",
+    optionsVirusTotalPost(url)
   );
 
   const { data, error } = await response.json();
-  console.log(data, error);
 
   if (error) {
-    // if (attempts < 3) {
-    //   attempts++;
-    //   return getUrlStats(url);
-    // }
     return;
   }
 
-  const dataList = Object.entries(data?.attributes?.last_analysis_results);
-  const urlStats = data?.attributes?.last_analysis_stats;
+  return data.links.self;
+};
+
+export const getUrlStats = async (linkId) => {
+  const response = await fetch(linkId, optionsVirusTotalGet);
+
+  const { data, error } = await response.json();
+
+  if (error) {
+    console.log("error", error);
+    return;
+  }
+
+  if (!data?.attributes?.results) {
+    console.log("nao tem results");
+    return;
+  }
+
+  const dataList = Object.entries(data?.attributes?.results);
+  const urlStats = data?.attributes?.stats;
+
+  const harmless = urlStats.harmless;
+  const malicious = urlStats.malicious;
+  const suspicious = urlStats.suspicious;
+  const timeout = urlStats.timeout;
+
+  if (!harmless && !malicious && !suspicious && !timeout) {
+    console.log("nao tem stats");
+    return;
+  }
 
   const filterData = (category) =>
     Object.fromEntries(
@@ -37,7 +54,6 @@ export const getUrlStats = async (url) => {
     );
 
   return {
-    abort,
     urlStats,
     filterData,
   };

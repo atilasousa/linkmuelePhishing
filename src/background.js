@@ -4,18 +4,21 @@ import {
   storeDataInLocalStorage,
   checkIfUrlIsInExcludeList,
   checkIfUrlExistInLocalStorage,
+  injectContentJsInActiveTab,
 } from "./utils/utils.js";
 import {
   addUrlToAnalysedLinks,
   checkIfUrlIsAnalysed,
 } from "./utils/firebaseFunctions.js";
-import { getUrlStats } from "./utils/virustotalAnalisys.js";
+import { getUrlStats, getUrlLinkId } from "./utils/virustotalAnalisys.js";
 
 chrome.storage.local.clear();
 chrome.storage.sync.clear();
 
 const runtimeHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab.id;
+  await chrome.tabs.connect(tabId);
+
   const tabHref = new URL(message?.url).href;
   const isInExcludeList = checkIfUrlIsInExcludeList(tabHref);
 
@@ -49,59 +52,57 @@ const runtimeHandler = async (message, sender, sendResponse) => {
     if (!resutl.exists) {
       if (message.type === "runtime") {
         try {
-          await getUrlStats(tabHref).then(async (data) => {
-            if (!data) {
-              return;
-            }
+          const urlLinkId = await getUrlLinkId(tabHref);
 
-            const { urlStats, filterData } = data;
+          if (!urlLinkId) return;
 
-            const urlData = {
-              id: tabHref,
-              stats: urlStats,
-              created_at: Date.now(),
-            };
+          const { urlStats, filterData } = (await getUrlStats(urlLinkId)) || {};
 
-            const phishingData = filterData("phishing");
-            const malwareData = filterData("malware");
-            const maliciousData = filterData("malicious");
+          if (!urlStats) return;
 
-            const phishingDataLength = Object.keys(phishingData).length;
-            const maliciousDataLength = Object.keys(maliciousData).length;
-            const malwareDataLength = Object.keys(malwareData).length;
+          const urlData = {
+            id: tabHref,
+            stats: urlStats,
+            created_at: Date.now(),
+          };
 
-            if (phishingDataLength) {
-              console.log("phishing aqui");
-              setIcon(tabId, "dangerIcon");
+          const phishingData = filterData("phishing");
+          const malwareData = filterData("malware");
+          const maliciousData = filterData("malicious");
 
-              urlData.type = "phishing";
-              urlData.phishingData = phishingData;
-            } else if (malwareDataLength) {
-              console.log("malware aqui");
-              setIcon(tabId, "warningIcon");
+          const phishingDataLength = Object.keys(phishingData).length;
+          const maliciousDataLength = Object.keys(maliciousData).length;
+          const malwareDataLength = Object.keys(malwareData).length;
 
-              urlData.type = "malware";
-              urlData.malwareData = malwareData;
-            } else if (maliciousDataLength) {
-              setIcon(tabId, "warningIcon");
-              console.log("malicious aqui");
+          if (phishingDataLength) {
+            setIcon(tabId, "dangerIcon");
 
-              urlData.type = "malicious";
-              urlData.maliciousData = maliciousData;
-            } else {
-              setIcon(tabId, "safeIcon");
-              urlData.type = "safe";
-              return;
-            }
+            urlData.type = "phishing";
+            urlData.phishingData = phishingData;
+          } else if (malwareDataLength) {
+            setIcon(tabId, "warningIcon");
 
-            await storeDataInLocalStorage(tabHref, urlData);
+            urlData.type = "malware";
+            urlData.malwareData = malwareData;
+          } else if (maliciousDataLength) {
+            setIcon(tabId, "warningIcon");
 
-            await addUrlToAnalysedLinks(tabHref, urlData);
+            urlData.type = "malicious";
+            urlData.maliciousData = maliciousData;
+          } else if (
+            !phishingDataLength &&
+            !maliciousDataLength &&
+            !malwareDataLength
+          ) {
+            setIcon(tabId, "safeIcon");
+            urlData.type = "safe";
+          }
 
-            sendMessageToOpenModal();
+          await storeDataInLocalStorage(tabHref, urlData);
 
-            console.log("cheguei aqui");
-          });
+          await addUrlToAnalysedLinks(tabHref, urlData);
+
+          if (urlData.type != "safe") sendMessageToOpenModal();
         } catch (error) {
           console.error(error);
         }
@@ -109,7 +110,6 @@ const runtimeHandler = async (message, sender, sendResponse) => {
         return true;
       }
     } else {
-      console.log("exists");
       const { type } = resutl.data?.urlStats;
       let icon = "";
 
@@ -129,7 +129,7 @@ const runtimeHandler = async (message, sender, sendResponse) => {
       }
 
       await storeDataInLocalStorage(tabHref, resutl.data);
-      if (icon != "safeIcon") sendMessageToOpenModal();
+      if (type != "safe") sendMessageToOpenModal();
 
       return true;
     }
@@ -140,31 +140,29 @@ chrome.action.onClicked.addListener(async () => {
   const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
   const tab = tabs[0];
 
+  injectContentJsInActiveTab(tab.id);
+
   const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(tab.url);
 
   if (isUrlExistInLocalStorage.exist) {
-    const type = isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type;
-    console.log("aqui o type", type);
+    const type =
+      isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type ??
+      isUrlExistInLocalStorage.result[tab.url]?.type;
 
-    const iconType =
-      type === "safe"
-        ? "safeIcon"
-        : type === "phishing"
-        ? "dangerIcon"
-        : "warningIcon";
+    let iconType = "";
+    if (type === "safe") iconType = "safeIcon";
+    else if (type === "phishing") iconType = "dangerIcon";
+    else if (type === "malicious") iconType = "warningIcon";
 
     setIcon(tab.id, iconType);
-    sendMessageToOpenModal();
+
+    setTimeout(() => {
+      sendMessageToOpenModal();
+    }, 500);
+
     return;
-  }
-
-  console.log("Button does not exist");
-  runtimeHandler(
-    { type: "runtime", url: location.href },
-    { tab: { id: tab.id } }
-  );
+  } else
+    runtimeHandler({ type: "runtime", url: tab.url }, { tab: { id: tab.id } });
 });
-
-chrome.runtime.onMessage.removeListener(runtimeHandler);
 
 chrome.runtime.onMessage.addListener(runtimeHandler);
