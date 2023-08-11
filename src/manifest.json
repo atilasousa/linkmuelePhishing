@@ -58,12 +58,5 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": [
-    "tabs",
-    "activeTab",
-    "scripting",
-    "notifications",
-    "storage",
-    "webRequest"
-  ]
+  "permissions": ["tabs", "activeTab", "scripting", "notifications", "storage"]
 }

@@ -1,8 +1,12 @@
 const currentURL = window.location.href;
 
-window.addEventListener("load", () => {
+window.onload = () => {
   chrome.runtime.sendMessage({ type: "runtime", url: location.href });
-});
+};
+
+// window.addEventListener("load", () => {
+//   chrome.runtime.sendMessage({ type: "runtime", url: location.href });
+// });
 
 let openModal = false;
 let modal = null;
@@ -49,12 +53,10 @@ const showModal = (report = null) => {
 };
 
 const runtimeHandler = (message, sender, sendResponse) => {
-  console.log("runtimeHandler", message);
   if (message.action === "open_modal") showModal();
 };
 
 chrome.runtime.onConnect.addListener((port) => {
-  console.log("recebi uma conexão");
   port.onMessage.addListener((message) => {
     if (message.action === "open_modal") showModal();
   });

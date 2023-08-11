@@ -20,7 +20,7 @@ export const checkIfUrlIsInExcludeList = (url) => {
   const urlObj = new URL(url);
   let hostname = urlObj.hostname;
 
-  if (defaultExcludedHosts[hostname]) return true;
+  if (defaultExcludedHosts.includes(hostname)) return true;
 
   const splitedHostName = hostname.split(".");
 
@@ -78,5 +78,14 @@ export const storeDataInLocalStorage = async (key, data) => {
     if (chrome.runtime.lastError) {
       console.log("Erro ao salvar na storage:", chrome.runtime.lastError);
     }
+  });
+};
+
+export const sendNotification = async (title, message, iconType) => {
+  await chrome.notifications.create({
+    type: "basic",
+    iconUrl: `./assets/images/${iconType}/128.png`,
+    title,
+    message,
   });
 };

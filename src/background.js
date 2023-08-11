@@ -5,6 +5,7 @@ import {
   checkIfUrlIsInExcludeList,
   checkIfUrlExistInLocalStorage,
   injectContentJsInActiveTab,
+  sendNotification,
 } from "./utils/utils.js";
 import {
   addUrlToAnalysedLinks,
@@ -103,7 +104,13 @@ const runtimeHandler = async (message, sender, sendResponse) => {
 
           await addUrlToAnalysedLinks(tabHref, urlData);
 
-          if (urlData.type != "safe") sendMessageToOpenModal();
+          if (urlData.type !== "safe") {
+            const title =
+              type === "malicious" ? "Malicious Website" : "Phishing Website";
+
+            sendMessageToOpenModal();
+            sendNotification(title, type, icon);
+          }
         } catch (error) {
           console.error(error);
         }
@@ -130,7 +137,13 @@ const runtimeHandler = async (message, sender, sendResponse) => {
       }
 
       await storeDataInLocalStorage(tabHref, resutl.data);
-      if (type != "safe") sendMessageToOpenModal();
+      if (type !== "safe") {
+        const title =
+          type === "malicious" ? "Malicious Website" : "Phishing Website";
+
+        sendMessageToOpenModal();
+        sendNotification(title, type, icon);
+      }
 
       return true;
     }
@@ -142,7 +155,7 @@ chrome.action.onClicked.addListener(async () => {
   const tab = tabs[0];
   let iconType = "";
 
-  if (!defaultHost[tab.url]) {
+  if (!defaultHost.includes(tab.url)) {
     injectContentJsInActiveTab(tab.id);
 
     const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(
