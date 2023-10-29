@@ -1,5 +1,5 @@
 import defaultExcludedHosts from "../excludeUrls/defaultUrls.json";
-import excludeGlobs from "../excludeUrls/excludeUrls.json";
+import excludedDomains from "../excludeUrls/excludeUrls.json";
 import base64 from "base-64";
 
 export const injectContentJsInActiveTab = async (tabId) => {
@@ -7,13 +7,6 @@ export const injectContentJsInActiveTab = async (tabId) => {
     target: { tabId },
     files: ["content.js"],
   });
-};
-
-export const sendMessageToOpenModal = async () => {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-
-  await chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
 };
 
 export const checkIfUrlIsInExcludeList = (url) => {
@@ -33,6 +26,19 @@ export const checkIfUrlIsInExcludeList = (url) => {
   );
 
   return isInExcludeList;
+};
+
+export const isHostnameInList = (domain) => {
+  return excludedDomains.some((pattern) =>
+    new RegExp(pattern).test("https://" + domain)
+  );
+};
+
+export const sendMessageToOpenModal = async () => {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+
+  await chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
 };
 
 export const sendMessageToContentScript = (tabId, message) => {
@@ -59,25 +65,25 @@ export const revertUrlFromBase64 = (url) => {
   return btoa(url).replace(/-/g, "/");
 };
 
-export const checkIfUrlExistInLocalStorage = async (urlKey) => {
-  let exist = false;
-
-  const result = await new Promise((resolve) => {
-    chrome.storage.sync.get([urlKey], function (result) {
-      resolve(result);
-    });
-  });
-
-  if (Object.keys(result).length !== 0) exist = true;
-
-  return { exist, result };
-};
-
 export const storeDataInLocalStorage = async (key, data) => {
   await chrome.storage.sync.set({ [key]: data }, () => {
     if (chrome.runtime.lastError) {
       console.log("Erro ao salvar na storage:", chrome.runtime.lastError);
     }
+  });
+};
+
+export const checkIfDataExistsInLocalStorage = async (key) => {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get([key], (result) => {
+      if (chrome.runtime.lastError) {
+        console.log("Erro ao buscar na storage:", chrome.runtime.lastError);
+        resolve(false);
+      } else {
+        const data = result[key];
+        resolve(data);
+      }
+    });
   });
 };
 
@@ -88,4 +94,21 @@ export const sendNotification = async (title, message, iconType) => {
     title,
     message,
   });
+};
+
+export const getMaliciousCompanies = (domainData) => {
+  const maliciousCompanies = [];
+  const analysisResults = domainData.attributes.last_analysis_results;
+
+  for (const companyName in analysisResults) {
+    if (
+      analysisResults[companyName].category === "malicious" ||
+      analysisResults[companyName].category === "suspicious" ||
+      analysisResults[companyName].category === "phishing"
+    ) {
+      maliciousCompanies.push(companyName);
+    }
+  }
+
+  return maliciousCompanies;
 };

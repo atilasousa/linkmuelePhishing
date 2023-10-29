@@ -96,11 +96,24 @@ body {
       }
 
       .details_holder {
+        border: 1px solid blue;
         width: 100%;
         display: flex;
         display: none;
         flex-direction: column;
         margin-bottom: 0.4rem;
+      }
+
+      .details {
+        span {
+          display: none;
+          font-size: 1.2rem;
+          margin-bottom: 0.5rem;
+
+          &:first-child {
+            margin-top: 0.5rem;
+          }
+        }
       }
 
       h1 {

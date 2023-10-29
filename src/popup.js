@@ -2,99 +2,27 @@ const summarysContentIds = ["phishing", "malicious", "malware"];
 let data = null;
 let webSiteCategories = [];
 
-function createListItem(innerContent) {
-  const listItem = document.createElement("li");
-  listItem.textContent = innerContent;
-  return listItem;
-}
-
-function generateList(dataObject) {
-  const dataList = Object.keys(dataObject);
-  const listElement = document.createElement("ul");
-
-  dataList.forEach((key) => {
-    const listItem = createListItem(key);
-    listElement.appendChild(listItem);
-  });
-
-  return listElement;
-}
-
-function printCategories() {
-  const categoryElement = document.getElementById("category");
-  const detailsTitleElement = document.getElementById("detailsTitle");
-
-  categoryElement.style.display = "block";
-  categoryElement.textContent = `Categorias: ${webSiteCategories}`;
-  detailsTitleElement.style.display = "block";
-}
-
 function printAlert(data, alertType) {
   let alertLogoClass = "";
   let iconSrc = "";
-  let alertText = "";
   let reportButtonClass = "";
 
-  switch (alertType) {
-    case "phishing":
-      const phishingData = data.urlStats?.phishingData ?? data.phishingData;
-      alertLogoClass = "phishing";
-      iconSrc = "./assets/images/dangerIcon/128.png";
-      alertText = "ALERTA PHISHING";
-      reportButtonClass = "phishing";
-      webSiteCategories = Object.values(phishingData).map(
-        (item) => item.category
-      );
-      break;
-    case "malicious":
-      const maliciousData = data.urlStats?.maliciousData ?? data.maliciousData;
-      alertLogoClass = "warning";
-      iconSrc = "./assets/images/warningIcon/128.png";
-      alertText = "ALERTA DE SEGURANÇA";
-      reportButtonClass = "warning";
-      webSiteCategories = Object.values(maliciousData).map(
-        (item) => item.category
-      );
-      break;
-  }
+  alertLogoClass = "phishing";
+  iconSrc = "./assets/images/dangerIcon/128.png";
+  const alertText = "ALERTA DE SEGURANÇA";
+  reportButtonClass = "phishing";
 
   const alertLogoElement = document.getElementById("alert_logo");
   const iconElement = document.getElementById("icon");
   const alertTextElement = document.getElementById("alert_text");
   const reportButtonElement = document.getElementById("reportButton");
+  const detailsHolder = document.getElementsByClassName("details")[0];
 
   alertLogoElement.classList.add(alertLogoClass);
   iconElement.src = iconSrc;
-  alertTextElement.textContent = alertText;
+  alertTextElement.innerHTML = alertText;
   reportButtonElement.classList.add(reportButtonClass);
-
-  summarysContentIds.forEach((element) => {
-    const el = document.getElementById(element);
-    const elTitle = document.getElementById(`${element}Title`);
-    let dataToPrint = null;
-
-    switch (element) {
-      case "phishing":
-        const phishingData = data.urlStats?.phishingData ?? data.phishingData;
-        dataToPrint = phishingData;
-        elTitle.textContent = "Empresas que classificaram como phishing";
-        break;
-      case "malicious":
-        const maliciousData =
-          data.urlStats?.maliciousData ?? data.maliciousData;
-        dataToPrint = maliciousData;
-        elTitle.textContent = "Empresas que classificaram como malicioso";
-        break;
-      case "malware":
-        const malwareData = data.urlStats?.malwareData ?? data.malwareData;
-        dataToPrint = malwareData;
-        elTitle.textContent = "Empresas que classificaram como malware";
-        break;
-    }
-    if (dataToPrint) {
-      el.appendChild(generateList(dataToPrint));
-    }
-  });
+  detailsHolder.style.display = "block";
 }
 
 function printSafeData() {
@@ -141,29 +69,6 @@ function hideInitComponent() {
   }
 }
 
-function showFullReport() {
-  if (webSiteCategories.length > 0) {
-    printCategories();
-  }
-
-  const { phishingData, maliciousData, malwareData } = data.urlStats ?? data;
-
-  if (phishingData) {
-    document.getElementsByClassName(
-      "details_holder_phishing"
-    )[0].style.display = "block";
-  }
-  if (maliciousData) {
-    document.getElementsByClassName(
-      "details_holder_malicious"
-    )[0].style.display = "block";
-  }
-  if (malwareData) {
-    document.getElementsByClassName("details_holder_malware")[0].style.display =
-      "block";
-  }
-}
-
 document.getElementById("close_button").addEventListener("click", async () => {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
@@ -173,19 +78,19 @@ document.getElementById("close_button").addEventListener("click", async () => {
 });
 
 chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {
-  const urlKey = tabs[0].url;
+  const domain = new URL(tabs[0].url).hostname;
 
   try {
-    data = await getUrlData(urlKey);
+    data = await getUrlData(domain);
 
-    const type = data.urlStats?.type ?? data.type;
+    console.log("domainData", data);
 
-    if (type === "malicious") {
-      printAlert(data, "malicious");
-    } else if (type === "phishing") {
-      printAlert(data, "phishing");
-    } else if (type === "safe") {
+    const type = data.domainStats?.type ?? data.type;
+
+    if (type === "safe") {
       printSafeData();
+    } else {
+      printAlert(data);
     }
   } catch (error) {
     console.error(error);
@@ -196,6 +101,8 @@ function getUrlData(urlKey) {
   return new Promise((resolve, reject) => {
     chrome.storage.sync.get([urlKey], function (result) {
       const urlData = result[urlKey];
+      console.log("urlDat", urlData);
+
       if (urlData) {
         resolve(urlData);
       } else {
@@ -207,6 +114,35 @@ function getUrlData(urlKey) {
       }
     });
   });
+}
+
+function showFullReport() {
+  const ssl = document.getElementById("ssl");
+  const domainDate = document.getElementById("domainDate");
+  const googleSearch = document.getElementById("googleSearch");
+  const domainDateData = data.domainStats?.domainDate;
+
+  if (!domainDateData) {
+    domainDate.textContent =
+      domainDateData === false
+        ? "O domínio deste site foi criado há menos de 1 ano. Isso pode ser um indicador de phishing."
+        : domainDateData === undefined
+        ? "Não foi encontrado uma data de criação deste domínio. Isso pode ser um indicador de phishing"
+        : "";
+
+    domainDate.style.display = "block";
+  }
+
+  if (!data.domainStats.hasSSL) {
+    ssl.textContent = "Não possui certificado HTTPS";
+    ssl.style.display = "block";
+  }
+
+  googleSearch.textContent = !data.domainStats.existInSearch
+    ? "O domínio deste site não foi encontrado pelo motor de busca Google. Isso pode ser um indicador de phishing."
+    : "Encontrado pelo motor de busca Google";
+
+  googleSearch.style.display = "block";
 }
 
 document.getElementById("reportButton").addEventListener("click", () => {

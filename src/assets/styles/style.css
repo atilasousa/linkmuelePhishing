@@ -142,11 +142,20 @@ body .main .info .close_button button svg:hover {
   fill: #e63946;
 }
 body .main .info .details_holder {
+  border: 1px solid blue;
   width: 100%;
   display: flex;
   display: none;
   flex-direction: column;
   margin-bottom: 0.4rem;
+}
+body .main .info .details span {
+  display: none;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+body .main .info .details span:first-child {
+  margin-top: 0.5rem;
 }
 body .main .info h1 {
   font-size: 3rem;

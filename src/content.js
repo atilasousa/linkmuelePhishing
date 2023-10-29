@@ -1,12 +1,46 @@
-const currentURL = window.location.href;
-
-window.onload = () => {
-  chrome.runtime.sendMessage({ type: "runtime", url: location.href });
+const checkSSLCertificade = () => {
+  if (window.location.protocol === "https:") {
+    return true;
+  }
+  return false;
 };
 
-// window.addEventListener("load", () => {
-//   chrome.runtime.sendMessage({ type: "runtime", url: location.href });
-// });
+const checkCanonical = () => {
+  const canonicalElement = document.querySelector('link[rel="canonical"]');
+
+  if (canonicalElement) {
+    const canonicalURL = canonicalElement.getAttribute("href");
+    const canonicalHostname =
+      (canonicalURL && new URL(canonicalURL).hostname) || "";
+    const currentHostname = window.location.hostname;
+
+    return canonicalHostname === currentHostname;
+  }
+
+  return null;
+};
+
+window.onload = async () => {
+  const haveCanonical = checkCanonical();
+
+  const hasSSL = checkSSLCertificade();
+
+  await chrome.runtime.sendMessage({
+    type: "runtime",
+    domain: location.hostname,
+    canonical: haveCanonical,
+    ssl: hasSSL,
+  });
+};
+
+const reCheck = async () => {
+  await chrome.runtime.sendMessage({
+    type: "runtime",
+    domain: location.hostname,
+    canonical: checkCanonical(),
+    ssl: checkSSLCertificade(),
+  });
+};
 
 let openModal = false;
 let modal = null;
@@ -54,15 +88,14 @@ const showModal = (report = null) => {
 
 const runtimeHandler = (message, sender, sendResponse) => {
   if (message.action === "open_modal") showModal();
+  if (message.action === "recheck") reCheck();
 };
 
 chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener((message) => {
     if (message.action === "open_modal") showModal();
-  });
-
-  chrome.extension.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "open_modal") showModal();
+    if (message.action === "recheck") reCheck();
   });
 });
+
 chrome.runtime.onMessage.addListener(runtimeHandler);

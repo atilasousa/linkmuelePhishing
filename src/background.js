@@ -2,17 +2,20 @@ import {
   sendMessageToOpenModal,
   setIcon,
   storeDataInLocalStorage,
-  checkIfUrlIsInExcludeList,
-  checkIfUrlExistInLocalStorage,
+  checkIfDataExistsInLocalStorage,
   injectContentJsInActiveTab,
-  sendNotification,
+  isHostnameInList,
+  getMaliciousCompanies,
 } from "./utils/utils.js";
 import {
-  addUrlToAnalysedLinks,
-  checkIfUrlIsAnalysed,
+  addUrlToAnalysedDomains,
+  checkIfDomainIsAnalysed,
 } from "./utils/firebaseFunctions.js";
-import { getUrlStats, getUrlLinkId } from "./utils/virustotalAnalisys.js";
-import defaultHost from "./excludeUrls/defaultUrls.json";
+import {
+  getDomainStats,
+  searchForDomainInGoogle,
+} from "./utils/virustotalAnalisys.js";
+import { checkDomainCreationDateIsMoreThanAYear } from "./utils/heuristAnalisys.js";
 
 chrome.storage.local.clear();
 chrome.storage.sync.clear();
@@ -21,131 +24,117 @@ const runtimeHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab.id;
   await chrome.tabs.connect(tabId);
 
-  const tabHref = new URL(message?.url).href;
-  const isInExcludeList = checkIfUrlIsInExcludeList(tabHref);
+  let domainData = null;
 
-  if (isInExcludeList) {
-    storeDataInLocalStorage(tabHref, { urlStats: { type: "safe" } });
+  if (message.type === "runtime") {
+    if (isHostnameInList(message.domain)) {
+      setIcon(tabId, "safeIcon");
 
-    setIcon(tabId, "safeIcon");
+      return;
+    }
 
-    return true;
-  }
+    let existInlocal = false;
 
-  const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(tabHref);
-
-  if (isUrlExistInLocalStorage.exist) {
-    const { type } = isUrlExistInLocalStorage?.result[tabHref];
-
-    const iconType =
-      type === "safe"
-        ? "safeIcon"
-        : type === "phishing"
-        ? "dangerIcon"
-        : "warningIcon";
-    setIcon(tabId, iconType);
-
-    if (type != "safe") sendMessageToOpenModal();
-
-    return true;
-  } else {
-    const resutl = await checkIfUrlIsAnalysed(tabHref);
-
-    if (!resutl.exists) {
-      if (message.type === "runtime") {
-        try {
-          const urlLinkId = await getUrlLinkId(tabHref);
-
-          if (!urlLinkId) return;
-
-          const { urlStats, filterData } = (await getUrlStats(urlLinkId)) || {};
-
-          if (!urlStats) return;
-
-          const urlData = {
-            id: tabHref,
-            stats: urlStats,
-            created_at: Date.now(),
-          };
-
-          const phishingData = filterData("phishing");
-          const malwareData = filterData("malware");
-          const maliciousData = filterData("malicious");
-
-          const phishingDataLength = Object.keys(phishingData).length;
-          const maliciousDataLength = Object.keys(maliciousData).length;
-          const malwareDataLength = Object.keys(malwareData).length;
-
-          if (phishingDataLength) {
+    await checkIfDataExistsInLocalStorage(message.domain).then(
+      async (exists) => {
+        if (exists) {
+          console.log("aqui");
+          if (exists.domainStats.type === "phishing") {
             setIcon(tabId, "dangerIcon");
-
-            urlData.type = "phishing";
-            urlData.phishingData = phishingData;
-          } else if (malwareDataLength) {
-            setIcon(tabId, "warningIcon");
-
-            urlData.type = "malware";
-            urlData.malwareData = malwareData;
-          } else if (maliciousDataLength) {
-            setIcon(tabId, "warningIcon");
-
-            urlData.type = "malicious";
-            urlData.maliciousData = maliciousData;
-          } else if (
-            !phishingDataLength &&
-            !maliciousDataLength &&
-            !malwareDataLength
-          ) {
-            setIcon(tabId, "safeIcon");
-            urlData.type = "safe";
-          }
-
-          await storeDataInLocalStorage(tabHref, urlData);
-
-          await addUrlToAnalysedLinks(tabHref, urlData);
-
-          if (urlData.type !== "safe") {
-            const title =
-              type === "malicious" ? "Malicious Website" : "Phishing Website";
-
             sendMessageToOpenModal();
-            sendNotification(title, type, icon);
+          } else if (exists.domainStats.type === "safe") {
+            console.log("safe");
+            setIcon(tabId, "safeIcon");
           }
-        } catch (error) {
-          console.error(error);
+
+          existInlocal = true;
+          return;
+        }
+      }
+    );
+
+    if (existInlocal) return;
+
+    const isVerified = await checkIfDomainIsAnalysed(message.domain).then(
+      async (data) => {
+        if (data.exists) domainData = data.data;
+
+        return data.exists;
+      }
+    );
+
+    if (!isVerified) {
+      let tabDomain = message.domain
+        ? message.domain.includes("www.")
+          ? message.domain
+          : `www.${message.domain}`
+        : "";
+
+      const existInGoogleSearch = await searchForDomainInGoogle(message.domain);
+
+      let domainData = await getDomainStats(tabDomain);
+
+      if (domainData) {
+        const { attributes } = domainData;
+
+        const domainDate = checkDomainCreationDateIsMoreThanAYear(
+          attributes?.creation_date
+        );
+
+        const suspiciousTotal = attributes?.last_analysis_stats?.suspicious;
+        const maliciousTotal = attributes?.last_analysis_stats?.malicious;
+        let maliciousCompanies = null;
+        const totalStats = attributes?.last_analysis_stats;
+
+        if (suspiciousTotal > 0 || maliciousTotal > 0) {
+          maliciousCompanies = getMaliciousCompanies(domainData);
         }
 
-        return true;
+        let type = "";
+        if (!domainDate) type = "phishing";
+        if (!existInGoogleSearch) type = "phishing";
+        else type = "safe";
+
+        if (existInGoogleSearch && domainDate) type = "safe";
+
+        const pageData = {
+          domainDate,
+          ...(totalStats && { totalStats: attributes?.last_analysis_stats }),
+          existInSearch: existInGoogleSearch,
+          ...(maliciousCompanies && maliciousCompanies),
+          ...(message.canonical && { hasCanonical: message.canonical }),
+          ...(message.ssl && { hasSSL: message.ssl }),
+          type,
+        };
+
+        await checkIfDataExistsInLocalStorage(message.domain).then(
+          async (exists) => {
+            if (!exists) {
+              if (type === "safe")
+                domainData = { domainStats: { type: "safe" } };
+
+              await storeDataInLocalStorage(message.domain, domainData);
+            }
+          }
+        );
+
+        if (type === "phishing") {
+          setIcon(tabId, "dangerIcon");
+          sendMessageToOpenModal();
+        } else if (type === "safe") {
+          setIcon(tabId, "safeIcon");
+        }
+
+        await addUrlToAnalysedDomains(message.domain, pageData);
       }
     } else {
-      const { type } = resutl.data?.urlStats;
-      let icon = "";
-
-      if (type === "malicious") {
-        icon = "warningIcon";
-      } else if (type === "phishing") {
-        icon = "dangerIcon";
-      } else if (type === "safe") {
-        icon = "safeIcon";
-      }
-
-      setIcon(tabId, icon);
-
-      if (isUrlExistInLocalStorage.exist) {
-        sendMessageToOpenModal();
-        return;
-      }
-
-      await storeDataInLocalStorage(tabHref, resutl.data);
-      if (type !== "safe") {
-        const title =
-          type === "malicious" ? "Malicious Website" : "Phishing Website";
-
-        sendMessageToOpenModal();
-        sendNotification(title, type, icon);
-      }
-
-      return true;
+      await checkIfDataExistsInLocalStorage(message.domain).then(
+        async (exists) => {
+          if (!exists) {
+            await storeDataInLocalStorage(message.domain, domainData);
+          }
+        }
+      );
     }
   }
 };
@@ -153,38 +142,40 @@ const runtimeHandler = async (message, sender, sendResponse) => {
 chrome.action.onClicked.addListener(async () => {
   const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
   const tab = tabs[0];
-  let iconType = "";
+  const tabId = tabs[0].id;
 
-  if (!defaultHost.includes(tab.url)) {
-    injectContentJsInActiveTab(tab.id);
+  const domain = new URL(tab?.url).hostname;
 
-    const isUrlExistInLocalStorage = await checkIfUrlExistInLocalStorage(
-      tab.url
-    );
+  let existInlocal = false;
 
-    if (isUrlExistInLocalStorage.exist) {
-      const type =
-        isUrlExistInLocalStorage.result[tab.url]?.urlStats?.type ??
-        isUrlExistInLocalStorage.result[tab.url]?.type;
+  await checkIfDataExistsInLocalStorage(domain).then(async (exists) => {
+    if (exists) {
+      if (exists.domainStats.type === "phishing") setIcon(tabId, "dangerIcon");
+      else if (exists.domainStats.type === "safe") setIcon(tabId, "safeIcon");
 
-      if (type === "safe") iconType = "safeIcon";
-      else if (type === "phishing") iconType = "dangerIcon";
-      else if (type === "malicious") iconType = "warningIcon";
-
-      setIcon(tab.id, iconType);
-
-      setTimeout(() => {
-        sendMessageToOpenModal();
-      }, 500);
-
+      sendMessageToOpenModal();
+      existInlocal = true;
       return;
-    } else
-      runtimeHandler(
-        { type: "runtime", url: tab.url },
-        { tab: { id: tab.id } }
-      );
+    }
+  });
+
+  if (existInlocal) return;
+
+  if (isHostnameInList(domain)) {
+    setIcon(tabId, "safeIcon");
+
+    await storeDataInLocalStorage(domain, {
+      domainStats: {
+        type: "safe",
+      },
+    });
+
+    await sendMessageToOpenModal();
+
+    return;
   } else {
-    setIcon(tab.id, "safeIcon");
+    injectContentJsInActiveTab(tabId);
+    await chrome.tabs.sendMessage(tabId, { action: "recheck" });
   }
 });
 
