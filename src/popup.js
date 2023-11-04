@@ -83,8 +83,6 @@ chrome.tabs.query({ currentWindow: true, active: true }, async function (tabs) {
   try {
     data = await getUrlData(domain);
 
-    console.log("domainData", data);
-
     const type = data.domainStats?.type ?? data.type;
 
     if (type === "safe") {
